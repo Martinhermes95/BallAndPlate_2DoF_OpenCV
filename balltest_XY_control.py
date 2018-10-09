@@ -12,9 +12,9 @@ import serial
 # Control (initial conditions)
 desired_X = 150 # Centre of the video
 desired_Y = 150 # Centre of the video
-kp = 0.4
-ki = 0
-kd = 0.1
+kp = 0.05
+ki = 0.0005
+kd = 0.15
 previous_error_x = 0
 previous_error_y = 0
 timenow = 0
@@ -31,15 +31,10 @@ ap.add_argument("-b", "--buffer", type=int, default=64,
                 help="max buffer size")
 args = vars(ap.parse_args())
 
-gui = Tk()
-gui.geometry('300x300+500+300')
-Slider_kp = Scale(gui, orient=HORIZONTAL, length=300.0, from_=0.0, to=1.0, tickinterval=0.5, resolution=0.1)
-Slider_kp.pack()
-
 # define the lower and upper boundaries of the "green"
 # ball in the HSV color space, then initialize the
 # list of tracked points
-greenLower = (100, 50, 50)
+greenLower = (20, 50, 50)
 greenUpper = (150, 255, 255)
 
 # define camera
@@ -110,7 +105,7 @@ while True:
         M = cv2.moments(c)
         center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
 
-        ballX = int(M["m10"] / M["m00"])  # type: int
+        ballX = int(M["m10"] / M["m00"])
         ballY = int(M["m01"] / M["m00"])
 
         X_string = str(int(M["m10"] / M["m00"]))
@@ -121,8 +116,6 @@ while True:
         print("posicao x:" + X_string + " " + "posicao y:" + Y_string + " " + "erroY: " + previous_errorY_str + " " + "erroX: " + previous_errorX_str)
 
         mask2 = cv2.inRange(hsv, gL, gU)
-        cv2.putText(mask2, "X_string", (10, 24), cv2.FONT_HERSHEY_PLAIN, 1.0, (255, 255, 255), thickness=10)
-        cv2.imshow("masked", mask2)
 
         # only proceed if the radius meets a minimum size
         if radius > 10:
@@ -154,18 +147,18 @@ while True:
     # ########################################################################################################
     # PID calculation
 
-    error_Y = (ballY - desired_Y)/1.5
-    error_X = (ballX - desired_X)/1.5
+    error_Y = (ballY - desired_Y)/1.0
+    error_X = (ballX - desired_X)/1.0
 
     # Proportional_XY
     pid_p_y = kp * error_Y
     pid_p_x = kp * error_X
 
     # Integral_XY
-    if -30 < error_Y < 30:
+    if -8 < error_Y < 8:
         pid_i_y = pid_i_y + (ki * error_Y)
 
-    if -30 < error_X < 30:
+    if -8 < error_X < 8:
         pid_i_x = pid_i_x + (ki * error_X)
     # Derivative_XY
     time_previous = timenow
@@ -173,7 +166,7 @@ while True:
     elapsedTime = timenow - time_previous
 
     pid_d_y = kd * ((error_Y - previous_error_y)/elapsedTime)
-    pid_d_x = kd * ((error_X - previous_error_x) / elapsedTime)
+    pid_d_x = kd * ((error_X - previous_error_x)/elapsedTime)
 
     previous_error_y = error_Y
     previous_error_x = error_X
@@ -197,13 +190,14 @@ while True:
     if servo_x >= 145:
         servo_x = 145
 
-    print ("servoy:" + str(servo_y) + " " + "servox: " + str(servo_x))  # servo_signal is a float so converting it to integer values
+    print ("servoy:" + str(servo_y) + " " + "servox: " + str(servo_x) + "PX: " + str(pid_p_x))  # servo_signal is a float so converting it to integer values
 
     # press q to end loop
 
     # Sending servo signal value to arduino
     # Only unsigned 8 bit integer values allowed
     # ArduinoSerial.write(str(chr(int(servo_y))))
+    ArduinoSerial.write(str(chr(int(servo_y))))
     ArduinoSerial.write(str(chr(int(servo_x))))
     # time.sleep(1./120)
     # print ArduinoSerial.readline()
